@@ -1,0 +1,114 @@
+# Load and explore creditcard.csv, preprocess, handle imbalance, train models (LogReg and RandomForest), evaluate with precision/recall/F1, and use SMOTE for improvement.
+
+# 1) Imports and data loading
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import classification_report, confusion_matrix, precision_recall_fscore_support
+from imblearn.over_sampling import SMOTE
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Read CSV
+creditcard_df = pd.read_csv('/content/creditcard.csv', encoding='ascii')
+print('Loaded creditcard.csv with shape:', creditcard_df.shape)
+print(creditcard_df.head())
+
+# 2) Basic preprocessing: separate features/target, scale Time and Amount; V1..V28 are already PCA-like scaled
+X = creditcard_df.drop('Class', axis=1)
+y = creditcard_df['Class']
+
+# Scale Time and Amount only
+scaler = StandardScaler()
+X_scaled = X.copy()
+cols_to_scale = ['Time', 'Amount']
+X_scaled[cols_to_scale] = scaler.fit_transform(X_scaled[cols_to_scale])
+print('Scaled columns:', cols_to_scale)
+
+# 3) Train-test split with stratification
+X_train, X_test, y_train, y_test = train_test_split(
+    X_scaled, y, test_size=0.2, random_state=42, stratify=y
+)
+print('Train/Test sizes:', X_train.shape, X_test.shape)
+
+# 4) Baseline model without resampling: Logistic Regression (balanced class_weight)
+logreg = LogisticRegression(max_iter=1000, n_jobs=None, class_weight='balanced', solver='lbfgs')
+logreg.fit(X_train, y_train)
+print('Trained Logistic Regression (balanced)')
+
+y_pred_lr = logreg.predict(X_test)
+print('LogReg classification report:')
+print(classification_report(y_test, y_pred_lr, digits=4))
+
+# 5) Random Forest baseline with class_weight balanced_subsample
+rf = RandomForestClassifier(n_estimators=300, random_state=42, n_jobs=-1, class_weight='balanced_subsample', max_depth=None)
+rf.fit(X_train, y_train)
+print('Trained RandomForest (balanced_subsample)')
+
+y_pred_rf = rf.predict(X_test)
+print('RandomForest classification report:')
+print(classification_report(y_test, y_pred_rf, digits=4))
+
+# 6) Apply SMOTE on the training set to handle imbalance, then train models again
+smote = SMOTE(random_state=42, sampling_strategy='auto', k_neighbors=5)
+X_train_sm, y_train_sm = smote.fit_resample(X_train, y_train)
+print('Applied SMOTE. Original y_train positives:', int(y_train.sum()))
+print('After SMOTE positives:', int(y_train_sm.sum()))
+print('SMOTE train size:', X_train_sm.shape)
+
+# Logistic Regression on SMOTE data
+logreg_sm = LogisticRegression(max_iter=1000, n_jobs=None, class_weight=None, solver='lbfgs')
+logreg_sm.fit(X_train_sm, y_train_sm)
+print('Trained Logistic Regression on SMOTE data')
+
+y_pred_lr_sm = logreg_sm.predict(X_test)
+print('LogReg+SMOTE classification report:')
+print(classification_report(y_test, y_pred_lr_sm, digits=4))
+
+# Random Forest on SMOTE data
+rf_sm = RandomForestClassifier(n_estimators=300, random_state=42, n_jobs=-1, class_weight=None, max_depth=None)
+rf_sm.fit(X_train_sm, y_train_sm)
+print('Trained RandomForest on SMOTE data')
+
+y_pred_rf_sm = rf_sm.predict(X_test)
+print('RF+SMOTE classification report:')
+print(classification_report(y_test, y_pred_rf_sm, digits=4))
+
+# 7) Show confusion matrices for the best performing model candidates (RF and RF+SMOTE)
+fig = plt.figure(figsize=(12,5))
+plt.subplot(1,2,1)
+cm_rf = confusion_matrix(y_test, y_pred_rf)
+sns.heatmap(cm_rf, annot=True, fmt='d', cmap='Blues')
+plt.title('RandomForest (balanced) Confusion Matrix')
+plt.xlabel('Predicted')
+plt.ylabel('Actual')
+
+plt.subplot(1,2,2)
+cm_rf_sm = confusion_matrix(y_test, y_pred_rf_sm)
+sns.heatmap(cm_rf_sm, annot=True, fmt='d', cmap='Greens')
+plt.title('RandomForest + SMOTE Confusion Matrix')
+plt.xlabel('Predicted')
+plt.ylabel('Actual')
+plt.tight_layout()
+plt.show()
+
+print('Displayed confusion matrices for RF and RF+SMOTE')
+
+# 8) Also compute and print precision, recall, f1 for the positive class (fraud) for quick comparison
+metrics = {}
+for name, yhat in [
+    ('LogReg_balanced', y_pred_lr),
+    ('RF_balanced', y_pred_rf),
+    ('LogReg_SMOTE', y_pred_lr_sm),
+    ('RF_SMOTE', y_pred_rf_sm)
+]:
+    p, r, f1, _ = precision_recall_fscore_support(y_test, yhat, average='binary', pos_label=1)
+    metrics[name] = {'precision': p, 'recall': r, 'f1': f1}
+
+print('Model comparison (fraud class):')
+for k in metrics:
+    vals = metrics[k]
+    print(k, '-> precision:', round(vals['precision'],4), 'recall:', round(vals['recall'],4), 'f1:', round(vals['f1'],4))
