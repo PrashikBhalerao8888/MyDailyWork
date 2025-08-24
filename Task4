@@ -1,0 +1,94 @@
+# Import necessary libraries
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+
+# --- Step 1: Load the dataset ---
+# The dataset 'advertising.csv' is loaded into a pandas DataFrame.
+try:
+    df = pd.read_csv('/content/advertising.csv')
+except FileNotFoundError:
+    print("Error: The file 'advertising.csv' was not found.")
+    print("Please make sure the file is in the same directory as the script.")
+    exit()
+
+# --- Step 2: Explore the data ---
+print("--- Data Head ---")
+print(df.head()) # Display the first 5 rows of the DataFrame
+
+print("\n--- Data Info ---")
+df.info() # Get a concise summary of the DataFrame, including data types and non-null values
+
+print("\n--- Missing Values Check ---")
+print(df.isnull().sum()) # Check for any missing values in each column
+
+# --- Step 3: Visualize the data ---
+# We use a pairplot to visualize the relationship between advertising channels and sales.
+# This helps us see if there's a linear correlation.
+print("\n--- Visualizing Relationships ---")
+# The following code will generate and display a plot showing the relationship
+# between TV, Radio, and Newspaper advertising and the Sales.
+sns.pairplot(df, x_vars=['TV', 'Radio', 'Newspaper'], y_vars='Sales', kind='scatter')
+plt.title('Relationship between Advertising Channels and Sales')
+plt.show()
+
+# --- Step 4: Prepare the data for the model ---
+# We separate the features (X) and the target variable (y).
+# X represents the independent variables (advertising channels).
+# y represents the dependent variable (Sales) that we want to predict.
+X = df[['TV', 'Radio', 'Newspaper']]
+y = df['Sales']
+
+# --- Step 5: Split the data into training and testing sets ---
+# We split the data to train the model on one portion and test its performance on a separate, unseen portion.
+# A test size of 0.3 means 30% of the data will be used for testing.
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+
+# --- Step 6: Choose and train the model ---
+# We'll use a simple Linear Regression model, which is a good starting point for this type of problem.
+model = LinearRegression()
+
+# Train the model using the training data. The model learns the relationship between X_train and y_train.
+print("\n--- Training the Model ---")
+model.fit(X_train, y_train)
+
+# --- Step 7: Evaluate the model's performance ---
+# Make predictions on the test set.
+y_pred = model.predict(X_test)
+
+print("\n--- Model Coefficients and Intercept ---")
+print(f"Coefficients: {model.coef_}")
+print(f"Intercept: {model.intercept_}")
+
+# The coefficients tell us the weight of each advertising channel.
+# For example, a larger coefficient for 'TV' means it has a stronger impact on sales.
+
+# Calculate and print evaluation metrics to understand how well the model performed.
+mae = mean_absolute_error(y_test, y_pred)
+mse = mean_squared_error(y_test, y_pred)
+r2 = r2_score(y_test, y_pred)
+
+print("\n--- Model Evaluation ---")
+print(f"Mean Absolute Error (MAE): {mae:.2f}")
+print(f"Mean Squared Error (MSE): {mse:.2f}")
+print(f"R-squared (R²): {r2:.2f}")
+
+# R-squared measures how well the model's predictions match the actual sales.
+# An R-squared value close to 1 indicates a good fit.
+# MAE and MSE are error metrics, where lower values are better.
+
+print("\n--- Sales Prediction Example ---")
+# You can now use the trained model to predict sales for new data.
+# Let's say we have a new set of advertising budgets:
+# TV = 200, Radio = 40, Newspaper = 50
+new_data = pd.DataFrame({
+    'TV': [200],
+    'Radio': [40],
+    'Newspaper': [50]
+})
+
+predicted_sales = model.predict(new_data)
+print(f"Predicted Sales for new data: {predicted_sales[0]:.2f}")
