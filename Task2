@@ -1,0 +1,48 @@
+import pandas as pd
+
+# Load the dataset
+df = pd.read_csv('/content/tested.csv')
+
+# Display the first 5 rows of the DataFrame
+print(df.head().to_markdown(index=False, numalign="left", stralign="left"))
+
+# Display the column names, data types, and non-null counts
+print(df.info())
+
+# Impute missing values
+df['Fare'].fillna(df['Fare'].mean(), inplace=True)
+df['Age'].fillna(df['Age'].median(), inplace=True)
+
+# Drop columns that are not useful for the model
+df.drop(['PassengerId', 'Name', 'Ticket', 'Cabin'], axis=1, inplace=True)
+
+# Convert categorical features to numerical using one-hot encoding
+df = pd.get_dummies(df, columns=['Sex', 'Embarked'], drop_first=True)
+
+# Display the first 5 rows and info of the preprocessed DataFrame
+print(df.head().to_markdown(index=False, numalign="left", stralign="left"))
+print(df.info())
+
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score, classification_report
+
+# Define features (X) and target (y)
+X = df.drop('Survived', axis=1)
+y = df['Survived']
+
+# Split the data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Initialize and train a Logistic Regression model
+model = LogisticRegression(random_state=42, solver='liblinear')
+model.fit(X_train, y_train)
+
+# Make predictions on the test set
+y_pred = model.predict(X_test)
+
+# Evaluate the model
+accuracy = accuracy_score(y_test, y_pred)
+print(f"Accuracy: {accuracy:.4f}")
+print("\nClassification Report:")
+print(classification_report(y_test, y_pred))
